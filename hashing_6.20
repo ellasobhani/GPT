@@ -1,0 +1,255 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 98,
+   "id": "68738963",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# import libraries\n",
+    "import pandas as pd\n",
+    "import openpyxl \n",
+    "from collections import Counter\n",
+    "import time"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 89,
+   "id": "e6bb10ec",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# function to determine whether a number is prime or not\n",
+    "def is_prime(num):\n",
+    "    if num < 2:\n",
+    "        return False\n",
+    "    for i in range(2, int(num**0.5) + 1):\n",
+    "        if num % i == 0:\n",
+    "            return False\n",
+    "    return True"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 90,
+   "id": "02c79d6b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# function to generate an array of size n of unique prime numbers\n",
+    "def generate_prime_numbers(n):\n",
+    "    primes = []\n",
+    "    num = 2\n",
+    "    while len(primes) < n:\n",
+    "        if is_prime(num):\n",
+    "            primes.append(num)\n",
+    "        num += 1\n",
+    "    return primes"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 91,
+   "id": "cd31a481",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# build array of unique airports\n",
+    "def airports_list(excel_file, sheet_name):\n",
+    "    df = pd.read_excel(excel_file, sheet_name=sheet_name)\n",
+    "    airports = []\n",
+    "\n",
+    "    for airport in df:\n",
+    "        if airport not in airports:\n",
+    "            airports.append(airport)\n",
+    "            \n",
+    "    return airports"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 92,
+   "id": "1311998a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# build airport frequency dictionary\n",
+    "def airport_freq_dict(excel_file, sheet_name, airports):\n",
+    "    df = pd.read_excel(excel_file, sheet_name=sheet_name)\n",
+    "    airports_counts = Counter(df[airports])\n",
+    "    freq_dict = {}\n",
+    "\n",
+    "    for airport, count in airports_counts.items():\n",
+    "        if airport not in freq_dict:\n",
+    "            freq_dict[airport] = []\n",
+    "        freq_dict[airport].append(airports)\n",
+    "\n",
+    "    return freq_dict"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 103,
+   "id": "620e78f8",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# sort dictionary in descending order by frequency of the airport codes\n",
+    "def sort_dictionary(dictionary):\n",
+    "    sorted_dict = sorted_dict = dict(sorted(dictionary.items(), key=lambda x: x[1], reverse=True))\n",
+    "    return sorted_dict"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 94,
+   "id": "23e304cb",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# function to build the lookup table of airports\n",
+    "# stores airport code with a prime number in a dictionary\n",
+    "def build_lookup_table(excel_sheet, sheet_name, n, airport_frequency_dict):\n",
+    "    freq_dict = sort_dictionary(airport_frequency_dict)\n",
+    "    sorted_airport_list = list(freq_dict.keys())\n",
+    "    \n",
+    "    lookup_table = {}\n",
+    "    prime_num = 2\n",
+    "\n",
+    "    for airport in sorted_airport_list:\n",
+    "        while not is_prime(prime_num):\n",
+    "            prime_num += 1\n",
+    "        lookup_table[airport] = prime_num\n",
+    "        prime_num += 1\n",
+    "    return lookup_table\n",
+    "\n",
+    "# alternative implementation\n",
+    "# array_of_primes = generate_prime_numbers(n)\n",
+    "# freq_dict = build_lookup_table(excel_sheet, sheet_name, n, origins)\n",
+    "# for index, airport_code in enumerate(freq_dict):\n",
+    "#    lookup_table[index] = {freq_dict[index].airport_code, array_of_primes[index]}"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 95,
+   "id": "90dfd9de",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# function to search the excel file and find the distance between origin-destination pairs\n",
+    "def distance_between(excel_file, sheet_name, orig, dest):\n",
+    "    df = pd.read_excel(excel_file, sheet_name=sheet_name)\n",
+    "    row = df.loc[df['ORIGIN'] == orig]\n",
+    "    col = row.loc[row['DEST'] == dest]\n",
+    "    distance = col['DISTANCE_IN_MILES']\n",
+    "    return distance"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 96,
+   "id": "eaa10da0",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# build a lookup table of routes\n",
+    "# stores the distance between an two airports at an index specified by hashing\n",
+    "def build_hashtable(excel_file, sheet_name, lookup_table, orig, dest):\n",
+    "    route_hashtable = []\n",
+    "    for i in enumerate(lookup_table):\n",
+    "        for j in enumerate(lookup_table):\n",
+    "            index = lookup_table[orig]*lookup_table[dest]\n",
+    "            route_hashtable[index] = distance_between(excel_file, sheet_name, orig, dest)\n",
+    "            \n",
+    "# ordered dict hashtable implementation\n",
+    "# (prime: distance) as (key:value)\n",
+    "def build_dict_hashtable(excel_file, sheet_name, lookup_table, orig, dest):\n",
+    "    route_hashtable = {}\n",
+    "    # for every airport in the lookup table with each other airport\n",
+    "    for i in enumerate(lookup_table):\n",
+    "        for j in enumerate(lookup_table):\n",
+    "            # get prime number for each and compute unique key to store the distance\n",
+    "            key = lookup_table[orig]*lookup_table[dest]\n",
+    "            route_hashtable[key] = distance_between(excel_file, sheet_name, orig, dest)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 104,
+   "id": "072ac430",
+   "metadata": {},
+   "outputs": [
+    {
+     "ename": "AttributeError",
+     "evalue": "'list' object has no attribute 'items'",
+     "output_type": "error",
+     "traceback": [
+      "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+      "\u001b[0;31mAttributeError\u001b[0m                            Traceback (most recent call last)",
+      "\u001b[0;32m/var/folders/13/gy37c5qj57g1qr8fn0t7syd80000gn/T/ipykernel_1032/2552073012.py\u001b[0m in \u001b[0;36m<module>\u001b[0;34m\u001b[0m\n\u001b[1;32m     16\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m     17\u001b[0m \u001b[0;31m# assign each airport in the freq dictionary with a prime number\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m---> 18\u001b[0;31m \u001b[0mlookup_table\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mbuild_lookup_table\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mexcel_file\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0msheet_name\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mn\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0msorted_airports\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m     19\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m     20\u001b[0m \u001b[0;31m# build array hashtable\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/var/folders/13/gy37c5qj57g1qr8fn0t7syd80000gn/T/ipykernel_1032/2141795720.py\u001b[0m in \u001b[0;36mbuild_lookup_table\u001b[0;34m(excel_sheet, sheet_name, n, airport_frequency_dict)\u001b[0m\n\u001b[1;32m      2\u001b[0m \u001b[0;31m# stores airport code with a prime number in a dictionary\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m      3\u001b[0m \u001b[0;32mdef\u001b[0m \u001b[0mbuild_lookup_table\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mexcel_sheet\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0msheet_name\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mn\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mairport_frequency_dict\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m----> 4\u001b[0;31m     \u001b[0mfreq_dict\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0msort_dictionary\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mairport_frequency_dict\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m      5\u001b[0m     \u001b[0msorted_airport_list\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mlist\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mfreq_dict\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mkeys\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m      6\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/var/folders/13/gy37c5qj57g1qr8fn0t7syd80000gn/T/ipykernel_1032/1401470480.py\u001b[0m in \u001b[0;36msort_dictionary\u001b[0;34m(dictionary)\u001b[0m\n\u001b[1;32m      1\u001b[0m \u001b[0;31m# sort dictionary in descending order by frequency of the airport codes\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m      2\u001b[0m \u001b[0;32mdef\u001b[0m \u001b[0msort_dictionary\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mdictionary\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m----> 3\u001b[0;31m     \u001b[0msorted_dict\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0msorted_dict\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mdict\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0msorted\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mdictionary\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mitems\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mkey\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0;32mlambda\u001b[0m \u001b[0mx\u001b[0m\u001b[0;34m:\u001b[0m \u001b[0mx\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0;36m1\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mreverse\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0;32mTrue\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m      4\u001b[0m     \u001b[0;32mreturn\u001b[0m \u001b[0msorted_dict\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;31mAttributeError\u001b[0m: 'list' object has no attribute 'items'"
+     ]
+    }
+   ],
+   "source": [
+    "# mock main method\n",
+    "# sample input\n",
+    "excel_file = \"//Users/ellasobhani/GPT/Distance_of_All_Airports_20230606_133617.xlsx\"\n",
+    "sheet_name = \"Sheet1\"\n",
+    "orig = \"06A\"\n",
+    "dest = \"A43\"\n",
+    "\n",
+    "# list of unique airports\n",
+    "airports = airports_list(excel_file, sheet_name)\n",
+    "n = len(airports)\n",
+    "\n",
+    "# create a frequency dictionary of the airports and sort it by frequency in descending order\n",
+    "airport_freq = airport_freq_dict(excel_file, sheet_name, airports)\n",
+    "sorted_freq_table = sort_dictionary(airport_freq)\n",
+    "sorted_airports = list(sorted_freq_table.keys())\n",
+    "\n",
+    "# assign each airport in the freq dictionary with a prime number\n",
+    "lookup_table = build_lookup_table(excel_file, sheet_name, n, sorted_airports)\n",
+    "\n",
+    "# build array hashtable\n",
+    "\n",
+    "#build dict hashtable\n",
+    "dict_hashtable = build_dict_hashtable(excel_file, sheet_name, lookup_table, orig, dest)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "7d9c8386",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.9.7"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
